@@ -51,15 +51,16 @@ class Dumper
         $output = '';
         $prefix = $indent ? str_repeat(' ', $indent) : '';
 
-        if ($inline <= 0 || !is_array($input) || empty($input)) {
+        if (static::checkInline($inline, $input)) {
             $output .= $prefix.Inline::dump($input, $exceptionOnInvalidType, $objectSupport);
         } else {
-            $isAHash = array_keys($input) !== range(0, count($input) - 1);
-
+            $isAHash = static::isAHash($input);
             foreach ($input as $key => $value) {
-                $willBeInlined = $inline - 1 <= 0 || !is_array($value) || empty($value);
+                $willBeInlined = static::checkInline($inline - 1, $value);
+                $comment = ($input instanceof CommentedData) ? $input->getCommentFor($key) : '';
 
-                $output .= sprintf('%s%s%s%s',
+                $output .= sprintf('%s%s%s%s%s',
+                    static::formatComment($comment, $indent),
                     $prefix,
                     $isAHash ? Inline::dump($key, $exceptionOnInvalidType, $objectSupport).':' : '-',
                     $willBeInlined ? ' ' : "\n",
@@ -68,6 +69,52 @@ class Dumper
             }
         }
 
+        return $output;
+    }
+
+    /**
+     * Check to see if the given value should be inlied
+     *
+     * @param mixed $value
+     * @return boolean          'true' if an array or CommentedData
+     */
+    protected static function checkInline($inline, $value)
+    {
+        return ($inline <= 0 || (!is_array($value) && (!$value instanceof CommentedData)) || empty($value));
+    }
+
+    /**
+     * Determine if a given value is a hash (vs a numeric array)
+     *
+     * @param array $input  An array to test
+     * @return boolean      'false' if all keys are numeric, true otherwise.
+     */
+    protected static function isAHash($input)
+    {
+        if (is_array($input)) {
+            return array_keys($input) !== range(0, count($input) - 1);
+        }
+        if ($input instanceof CommentedData) {
+            return $input->isAHash();
+        }
+    }
+
+    /**
+     * Convert a comment string into an appropriately-indented
+     * block of text prefixed with the comment character ("#").
+     *
+     * @param string $commentString         The comment to format
+     * @param int   $indent                 The level of indentation
+     */
+    protected static function formatComment($commentString, $indent)
+    {
+        $output = '';
+        if (strlen($commentString) > 0) {
+            $prefix = $indent ? str_repeat(' ', $indent) : '';
+            foreach (explode("\n", $commentString) as $commentLine) {
+                $output .= "$prefix# $commentLine\n";
+            }
+        }
         return $output;
     }
 }

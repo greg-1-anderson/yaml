@@ -13,6 +13,7 @@ namespace Symfony\Component\Yaml\Tests;
 
 use Symfony\Component\Yaml\Parser;
 use Symfony\Component\Yaml\Dumper;
+use Symfony\Component\Yaml\CommentedData;
 
 class DumperTest extends \PHPUnit_Framework_TestCase
 {
@@ -74,6 +75,49 @@ foobar:
 
 EOF;
         $this->assertEquals($expected, $this->dumper->dump($this->array, 4, 0));
+    }
+
+    public function testCommentedDump()
+    {
+        $this->dumper->setIndentation(4);
+
+        $expected = <<<'EOF'
+# An empty key
+'': bar
+# A value with a hashmark
+foo: '#bar'
+# A key with an embedded quote
+'foo''bar': {  }
+bar:
+    # First index
+    - 1
+    # Second index
+    - foo
+# A nested array can also have comments
+foobar:
+    # A nested comment
+    foo: bar
+    bar:
+        - 1
+        - foo
+    foobar:
+        foo: bar
+        bar:
+            - 1
+            - foo
+
+EOF;
+        $a = new CommentedData($this->array);
+
+        $a->setCommentFor('', 'An empty key');
+        $a->setCommentFor('foo', 'A value with a hashmark');
+        $a->setCommentFor('foo\'bar', 'A key with an embedded quote');
+        $a['bar']->setCommentFor(0, 'First index');
+        $a['bar']->setCommentFor(1, 'Second index');
+        $a['foobar']->setComment('A nested array can also have comments');
+        $a['foobar']->setCommentFor('foo', 'A nested comment');
+
+        $this->assertEquals($expected, $this->dumper->dump($a, 4, 0));
     }
 
     public function testSpecifications()

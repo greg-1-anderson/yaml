@@ -20,6 +20,11 @@ class CommentedData implements \ArrayAccess
     protected $data = [];
 
     /**
+     * The comment for this element datum; the "top-level" comment.
+     */
+    protected $comment = '';
+
+    /**
      * Comments for the top-level elements of $data.  Always an
      * array of strings.
      */
@@ -29,9 +34,10 @@ class CommentedData implements \ArrayAccess
      * Constructor.  Create commented data with the top-level
      * comments specified as an array of strings.
      */
-    public function __construct($data = [], $comments = [])
+    public function __construct($data = [], $comment = '', $comments = [])
     {
         $this->data = $data;
+        $this->comment = $comment;
         // TODO: confirm that all elements in $comments are strings?
         $this->comments = (array) $comments;
     }
@@ -62,14 +68,27 @@ class CommentedData implements \ArrayAccess
         return $result;
     }
 
+    function setComment($comment)
+    {
+        $this->comment = $comment;
+    }
+
+    function getComment()
+    {
+        return $this->comment;
+    }
+
     /**
      * Return the comment associated with a particular index.
      *
      * @param int|string $offset
      * @return string
      */
-    public function getComment($offset)
+    public function getCommentFor($offset)
     {
+        if (isset($this->data[$offset]) && ($this->data[$offset] instanceof CommentedData)) {
+            return $this->data[$offset]->getComment();
+        }
         if (isset($this->comments[$offset])) {
             return $this->comments[$offset];
         }
@@ -81,9 +100,15 @@ class CommentedData implements \ArrayAccess
      * @param int|string $offset
      * @param string $value
      */
-    public function setComment($offset, $value)
+    public function setCommentFor($offset, $value)
     {
-        $this->comments[$offset] = $value;
+        if (isset($this->data[$offset]) && ($this->data[$offset] instanceof CommentedData)) {
+            $this->data[$offset]->setComment($value);
+        }
+        else {
+            // TODO: should we fail if $this->data[$offset] is not set?
+            $this->comments[$offset] = $value;
+        }
     }
 
     /**
@@ -110,7 +135,7 @@ class CommentedData implements \ArrayAccess
             $this->data[$offset] = new CommentedData();
         }
         if (is_array($this->data[$offset])) {
-            $this->data[$offset] = new CommentedData($this->data[$offset]);
+            $this->data[$offset] = new CommentedData($this->data[$offset], isset($this->comments[$offset]) ? $this->comments[$offset] : null);
         }
         return $this->data[$offset];
     }
@@ -138,3 +163,4 @@ class CommentedData implements \ArrayAccess
         unset($this->comments[$offset]);
     }
 }
+

@@ -28,10 +28,13 @@ class CommentedDataTest extends \PHPUnit_Framework_TestCase
         $a['bucket']['a'] = "first";
         $a['bucket']['b'] = "second";
 
-        $a->setComment('foo', 'This is the comment for foo.');
-        $a->setComment('bar', 'This is the comment for bar.');
-        $a['bucket']->setComment('a', "This is the comment for bucket/a");
-        $a['bucket']->setComment('b', "This is the comment for bucket/b");
+        $a->setComment('This is the top-level comment.');
+
+        $a->setCommentFor('foo', 'This is the comment for foo.');
+        $a->setCommentFor('bar', 'This is the comment for bar.');
+        $a['bucket']->setComment("This is the comment for bucket");
+        $a['bucket']->setCommentFor('a', "This is the comment for bucket/a");
+        $a['bucket']->setCommentFor('b', "This is the comment for bucket/b");
 
         $this->assertEquals("hello", $a['foo']);
         $this->assertEquals("world", $a['bar']);
@@ -39,9 +42,32 @@ class CommentedDataTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals("first", $a['bucket']['a']);
         $this->assertEquals("second", $a['bucket']['b']);
 
-        $this->assertEquals('This is the comment for foo.', $a->getComment('foo'));
-        $this->assertEquals('This is the comment for bar.', $a->getComment('bar'));
-        $this->assertEquals("This is the comment for bucket/a", $a['bucket']->getComment('a'));
-        $this->assertEquals("This is the comment for bucket/b", $a['bucket']->getComment('b'));
+        $this->assertEquals('This is the top-level comment.', $a->getComment());
+        $this->assertEquals('This is the comment for foo.', $a->getCommentFor('foo'));
+        $this->assertEquals('This is the comment for bar.', $a->getCommentFor('bar'));
+        $this->assertEquals("This is the comment for bucket", $a['bucket']->getComment());
+        $this->assertEquals("This is the comment for bucket/a", $a['bucket']->getCommentFor('a'));
+        $this->assertEquals("This is the comment for bucket/b", $a['bucket']->getCommentFor('b'));
+
+        // Note that we want elements such as $a['foo'] to behave
+        // like strings, so we do not support $a['foo']->setComment(...),
+        // because we want $a['foo'] to return the native string object.
+        // We could potentially return a CommentedData element here as well,
+        // but then we would need to be able to typecast to the correct data
+        // type as needed. If we *only* supported strings, this would likely
+        // be doable via a _toString() method, but it is unclear whether we
+        // could support the same for other scalar types.
+
+        // Here are the operations that might
+
+        // $a['foo']->setComment('This is the comment for foo.');
+        // $a['bar']->setComment('This is the comment for bar.');
+        // $a['bucket']['a']->setComment("This is the comment for bucket/a");
+        // $a['bucket']['b']->setComment("This is the comment for bucket/b");
+        // $this->assertEquals('This is the comment for foo.', $a['foo']->getComment());
+        // $this->assertEquals('This is the comment for bar.', $a['bar']->getComment());
+        // $this->assertEquals("This is the comment for bucket/a", $a['bucket']['a']->getComment());
+        // $this->assertEquals("This is the comment for bucket/b", $a['bucket']['b']->getComment());
+
     }
 }

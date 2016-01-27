@@ -8,7 +8,7 @@ namespace Symfony\Component\Yaml;
  *
  * @author Greg Anderson <greg.1.anderson@greenknowe.org>
  */
-class CommentedData implements \ArrayAccess
+class CommentedData implements \ArrayAccess, \IteratorAggregate
 {
     /**
      * The nested data.  The elements here can be either scalars,
@@ -40,6 +40,11 @@ class CommentedData implements \ArrayAccess
         $this->comment = $comment;
         // TODO: confirm that all elements in $comments are strings?
         $this->comments = (array) $comments;
+    }
+
+    public function isAHash()
+    {
+        return array_keys($this->data) !== range(0, count($this->data) - 1);
     }
 
     /**
@@ -162,5 +167,16 @@ class CommentedData implements \ArrayAccess
         unset($this->data[$offset]);
         unset($this->comments[$offset]);
     }
+
+    /**
+     * Accessor for `foreach`.
+     *
+     * @return \Iterator
+     */
+    public function getIterator()
+    {
+        return new \ArrayIterator($this->data);
+    }
+
 }
 

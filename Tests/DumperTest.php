@@ -13,6 +13,7 @@ namespace Symfony\Component\Yaml\Tests;
 
 use Symfony\Component\Yaml\Parser;
 use Symfony\Component\Yaml\Dumper;
+use Symfony\Component\Yaml\CommentedData;
 
 class DumperTest extends \PHPUnit_Framework_TestCase
 {
@@ -32,17 +33,6 @@ class DumperTest extends \PHPUnit_Framework_TestCase
                 'foo' => 'bar',
                 'bar' => array(1, 'foo'),
             ),
-        ),
-    );
-
-    protected $comments = array(
-        '' => 'An empty key',
-        'foo' => 'A value with a hashmark',
-        'foo\'bar' => 'A key with an embedded quote',
-        'bar' => array(0 => 'First index', 1 => 'Second index'),
-        'foobar' => array(
-            '#' => 'A nested array can also have comments',
-            'foo' => 'A nested comment',
         ),
     );
 
@@ -89,6 +79,8 @@ EOF;
 
     public function testCommentedDump()
     {
+        $this->dumper->setIndentation(4);
+
         $expected = <<<'EOF'
 # An empty key
 '': bar
@@ -115,7 +107,17 @@ foobar:
             - foo
 
 EOF;
-        $this->assertEquals($expected, $this->dumper->commentedDump($this->array, $this->comments, 4, 0));
+        $a = new CommentedData($this->array);
+
+        $a->setCommentFor('', 'An empty key');
+        $a->setCommentFor('foo', 'A value with a hashmark');
+        $a->setCommentFor('foo\'bar', 'A key with an embedded quote');
+        $a['bar']->setCommentFor(0, 'First index');
+        $a['bar']->setCommentFor(1, 'Second index');
+        $a['foobar']->setComment('A nested array can also have comments');
+        $a['foobar']->setCommentFor('foo', 'A nested comment');
+
+        $this->assertEquals($expected, $this->dumper->dump($a, 4, 0));
     }
 
     public function testSpecifications()

@@ -48,53 +48,55 @@ class Dumper
      */
     public function dump($input, $inline = 0, $indent = 0, $exceptionOnInvalidType = false, $objectSupport = false)
     {
-        return $this->commentedDump($input, [], $inline, $indent, $exceptionOnInvalidType, $objectSupport);
-    }
-
-    /**
-     * Dumps a PHP value to a commented YAML structure.
-     *
-     * @param mixed $input                  The PHP value
-     * @param mixed $comments               The comments that go with the php value
-     * @param int   $inline                 The level where you switch to inline YAML
-     * @param int   $indent                 The level of indentation (used internally)
-     * @param bool  $exceptionOnInvalidType true if an exception must be thrown on invalid types (a PHP resource or object), false otherwise
-     * @param bool  $objectSupport          true if object support is enabled, false otherwise
-     *
-     * @return string The YAML representation of the PHP value
-     */
-    public function commentedDump($input, $comments, $inline = 0, $indent = 0, $exceptionOnInvalidType = false, $objectSupport = false)
-    {
         $output = '';
         $prefix = $indent ? str_repeat(' ', $indent) : '';
 
-        // Handle top-level comments here. All other comments are inserted
-        // below, inside the `foreach($input)` loop
-        if (isset($comments['#'])) {
-            $output .= $this->formatComment($comments['#'], $indent);
-        }
-        if ($inline <= 0 || !is_array($input) || empty($input)) {
+        if (static::checkInline($inline, $input)) {
             $output .= $prefix.Inline::dump($input, $exceptionOnInvalidType, $objectSupport);
         } else {
-            $isAHash = array_keys($input) !== range(0, count($input) - 1);
-
+            $isAHash = static::isAHash($input);
             foreach ($input as $key => $value) {
-                $willBeInlined = $inline - 1 <= 0 || !is_array($value) || empty($value);
-                $subcomments = $this->subComments($comments, $key);
-                $comment = isset($subcomments['#']) ? $subcomments['#'] : '';
-                unset($subcomments['#']);
+                $willBeInlined = static::checkInline($inline - 1, $value);
+                $comment = ($input instanceof CommentedData) ? $input->getCommentFor($key) : '';
 
                 $output .= sprintf('%s%s%s%s%s',
-                    $this->formatComment($comment, $indent),
+                    static::formatComment($comment, $indent),
                     $prefix,
                     $isAHash ? Inline::dump($key, $exceptionOnInvalidType, $objectSupport).':' : '-',
                     $willBeInlined ? ' ' : "\n",
-                    $this->commentedDump($value, $subcomments, $inline - 1, $willBeInlined ? 0 : $indent + $this->indentation, $exceptionOnInvalidType, $objectSupport)
+                    $this->dump($value, $inline - 1, $willBeInlined ? 0 : $indent + $this->indentation, $exceptionOnInvalidType, $objectSupport)
                 ).($willBeInlined ? "\n" : '');
             }
         }
 
         return $output;
+    }
+
+    /**
+     * Check to see if the given value should be inlied
+     *
+     * @param mixed $value
+     * @return boolean          'true' if an array or CommentedData
+     */
+    protected static function checkInline($inline, $value)
+    {
+        return ($inline <= 0 || (!is_array($value) && (!$value instanceof CommentedData)) || empty($value));
+    }
+
+    /**
+     * Determine if a given value is a hash (vs a numeric array)
+     *
+     * @param array $input  An array to test
+     * @return boolean      'false' if all keys are numeric, true otherwise.
+     */
+    protected static function isAHash($input)
+    {
+        if (is_array($input)) {
+            return array_keys($input) !== range(0, count($input) - 1);
+        }
+        if ($input instanceof CommentedData) {
+            return $input->isAHash();
+        }
     }
 
     /**
@@ -104,7 +106,7 @@ class Dumper
      * @param string $commentString         The comment to format
      * @param int   $indent                 The level of indentation
      */
-    protected function formatComment($commentString, $indent)
+    protected static function formatComment($commentString, $indent)
     {
         $output = '';
         if (strlen($commentString) > 0) {
@@ -114,24 +116,5 @@ class Dumper
             }
         }
         return $output;
-    }
-
-    /**
-     * Look up the subcomments in the specified comments array.
-     * These are the comments that apply to the data at $key.
-     *
-     * @param mixed $comments       An associative array of comments,
-     *                              or a singe comment string
-     * @param $key                  The key of the data to retreive comments for
-     */
-    protected function subComments($comments, $key)
-    {
-        if (!isset($comments[$key])) {
-            return [];
-        }
-        if (is_array($comments[$key])) {
-            return $comments[$key];
-        }
-        return[ '#' => $comments[$key] ];
     }
 }

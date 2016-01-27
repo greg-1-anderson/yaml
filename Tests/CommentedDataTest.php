@@ -36,6 +36,12 @@ class CommentedDataTest extends \PHPUnit_Framework_TestCase
         $a['bucket']->setCommentFor('a', "This is the comment for bucket/a");
         $a['bucket']->setCommentFor('b', "This is the comment for bucket/b");
 
+        $keys = [];
+        foreach ($a as $key => $value) {
+            $keys[] = $key;
+        }
+        $this->assertEquals('foo,bar,bucket', implode(',', $keys));
+
         $this->assertEquals("hello", $a['foo']);
         $this->assertEquals("world", $a['bar']);
 
@@ -58,7 +64,8 @@ class CommentedDataTest extends \PHPUnit_Framework_TestCase
         // be doable via a _toString() method, but it is unclear whether we
         // could support the same for other scalar types.
 
-        // Here are the operations that might
+        // Here are the operations that might be supported if we returned
+        // wrapper objects for scalar types.
 
         // $a['foo']->setComment('This is the comment for foo.');
         // $a['bar']->setComment('This is the comment for bar.');

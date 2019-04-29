@@ -27,6 +27,7 @@ class Parser
     private $currentLineNb = -1;
     private $currentLine = '';
     private $refs = array();
+    private $keepComments = false;
 
     /**
      * Constructor.
@@ -36,6 +37,15 @@ class Parser
     public function __construct($offset = 0)
     {
         $this->offset = $offset;
+    }
+
+    /**
+     * Enable comment-keeping mode. Will return objects
+     * of tpe CommentedData when comments are present.
+     */
+    public function keepComments($keepComments)
+    {
+        $this->keepComments = $keepComments;
     }
 
     /**
@@ -68,8 +78,15 @@ class Parser
         $data = array();
         $context = null;
         $allowOverwrite = false;
+        $accumulatedComments = [];
         while ($this->moveToNextLine()) {
-            if ($this->isCurrentLineEmpty()) {
+            if ($this->isCurrentLineComment()) {
+                if ($this->keepComments) {
+                    $accumulatedComments[] = rtrim($this->currentLine);
+                }
+                continue;
+            }
+            if ($this->isCurrentLineBlank()) {
                 continue;
             }
 
@@ -84,6 +101,10 @@ class Parser
                     throw new ParseException('You cannot define a sequence item when in a mapping');
                 }
                 $context = 'sequence';
+
+                if (!empty($accumulatedComments)) {
+                    throw new ParseException('Comments are not supported within sequences due to a limitation in the current implementation');
+                }
 
                 if (isset($values['value']) && preg_match('#^&(?P<ref>[^ ]+) *(?P<value>.*)#u', $values['value'], $matches)) {
                     $isRef = $matches['ref'];
@@ -141,6 +162,11 @@ class Parser
                 }
 
                 if ('<<' === $key) {
+
+                    if (!empty($accumulatedComments)) {
+                        throw new ParseException('Comments are not supported within merge blocks');
+                    }
+
                     $mergeNode = true;
                     $allowOverwrite = true;
                     if (isset($values['value']) && 0 === strpos($values['value'], '*')) {
@@ -202,8 +228,26 @@ class Parser
                     }
                 } elseif (isset($values['value']) && preg_match('#^&(?P<ref>[^ ]+) *(?P<value>.*)#u', $values['value'], $matches)) {
                     $isRef = $matches['ref'];
-                    $values['value'] = $matches['value'];
+                    $value = $matches['value'];
+
+                    if (!empty($accumulatedComments)) {
+                        $comments =                         implode(
+                                "\n",
+                                array_map(
+                                    function($item) {
+                                        return ltrim(ltrim(trim($item), '#'));
+                                    },
+                                    $accumulatedComments
+                                )
+                            );
+
+                        $value = new CommentedData($value, $comments);
+                    }
+
+                    $values['value'] = $value;
                 }
+
+                $accumulatedComments = [];
 
                 if ($mergeNode) {
                     // Merge keys
